@@ -1,3 +1,13 @@
+terraform {
+  backend "azurerm" {
+    storage_account_name = "storageproject4"
+    container_name       = "azproject4"
+    key                  = "terraform.tfstate"
+    resource_group_name  = "Project4"
+    subscription_id      = "051883a4-ac24-47d8-a540-74f594f0e673"
+  }
+}
+
 # Create virtual network
 resource "azurerm_virtual_network" "my_terraform_network" {
   name                = "${random_pet.prefix.id}-vnet"
