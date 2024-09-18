@@ -5,7 +5,7 @@ variable "resource_group_location" {
 
 variable "prefix" {
   type        = string
-  default     = "win-vm-iis"
+  default     = "aa-bb-cc"
   description = "Prefix of the resource name"
 }
 
