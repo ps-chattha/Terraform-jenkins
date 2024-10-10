@@ -3,7 +3,7 @@ trigger:
 
 variables:
   terraformVersion: '1.4.6'
-  azureServiceConnection: 'Test1-con'
+  azureServiceConnection: 'Test-22'
 
 stages:
 - stage: Terraform
