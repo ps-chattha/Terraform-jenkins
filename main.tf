@@ -25,7 +25,7 @@ resource "random_password" "password" {
 
 # Create a resource group with a random prefix
 resource "azurerm_resource_group" "my_terraform_group" {
-  name     = "${random_pet.prefix.id}-project4TF"
+  name     = "${random_pet.prefix.id}-rg"
   location = "east us"
 }
 
