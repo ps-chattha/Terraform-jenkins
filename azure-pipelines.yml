@@ -1,34 +1,55 @@
+# azure-pipelines.yml
+
 trigger:
   branches:
     include:
-      - main
+      - main   # Adjust the branch as needed
 
 pool:
   vmImage: 'ubuntu-latest'
 
+variables:
+  TF_VAR_client_id: $(ARM_CLIENT_ID)
+  TF_VAR_client_secret: $(ARM_CLIENT_SECRET)
+  TF_VAR_subscription_id: $(ARM_SUBSCRIPTION_ID)
+  TF_VAR_tenant_id: $(ARM_TENANT_ID)
 
 steps:
+  # Use the AzureCLI task to authenticate with the Azure service connection
   - task: AzureCLI@2
     inputs:
-      azureSubscription: 'TF-deployment'
+      azureSubscription: 'TF-deployment'   # Your Azure service connection name
       scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |
-        # Install Terraform
-        curl -o terraform.zip https://releases.hashicorp.com/terraform/1.0.0/terraform_1.0.0_linux_amd64.zip
-        unzip terraform.zip
-        sudo mv terraform /usr/local/bin/
-        
-        export ARM_CLIENT_ID=$AZURE_CLIENT_ID
-        export ARM_CLIENT_SECRET=$AZURE_CLIENT_SECRET
-        export ARM_SUBSCRIPTION_ID=$AZURE_SUBSCRIPTION_ID
-        export ARM_TENANT_ID=$AZURE_TENANT_ID
+        echo "Logged in to Azure"
+        az account show
 
-        # Initialize Terraform
-        terraform init
+  # Install Terraform
+  - script: |
+      echo "##[section]Install Terraform"
+      sudo apt-get update && sudo apt-get install -y gnupg software-properties-common
+      curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+      sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+      sudo apt-get update && sudo apt-get install terraform
+    displayName: 'Install Terraform'
 
-        # Plan Terraform deployment
-        terraform plan -out tfplan
+  # Checkout the repository containing the Terraform scripts
+  - checkout: self
+    clean: true
 
-        # Apply Terraform deployment
-        terraform apply -auto-approve tfplan
+  # Initialize Terraform
+  - script: |
+      terraform init
+    displayName: 'Terraform Init'
+
+  # Plan Terraform changes
+  - script: |
+      terraform plan -out=tfplan
+    displayName: 'Terraform Plan'
+
+  # Apply Terraform changes
+  - script: |
+      terraform apply -auto-approve tfplan
+    displayName: 'Terraform Apply'
+
