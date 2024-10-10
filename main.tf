@@ -1,36 +1,63 @@
-# Create virtual network
+# Generate a random prefix for resource names
+resource "random_pet" "prefix" {
+  length = 1
+}
+
+# Generate a random ID for the storage account
+resource "random_id" "random_id" {
+  keepers = {
+    # Generate a new ID only when a new resource group is defined
+    resource_group = azurerm_resource_group.my_terraform_group.name
+  }
+
+  byte_length = 8
+}
+
+# Generate a random password for the VM
+resource "random_password" "password" {
+  length      = 20
+  min_lower   = 1
+  min_upper   = 1
+  min_numeric = 1
+  min_special = 1
+  special     = true
+}
+
+# Create a resource group with a random prefix
 resource "azurerm_resource_group" "my_terraform_group" {
-  name = "project4TF"
+  name     = "${random_pet.prefix.id}-project4TF"
   location = "east us"
 }
+
+# Create a virtual network within the resource group
 resource "azurerm_virtual_network" "my_terraform_network" {
   name                = "${random_pet.prefix.id}-vnet"
   address_space       = ["10.0.0.0/16"]
-  location            = "East US"
-  resource_group_name = "project4TF"
+  location            = azurerm_resource_group.my_terraform_group.location
+  resource_group_name = azurerm_resource_group.my_terraform_group.name
 }
 
-# Create subnet
+# Create a subnet within the virtual network
 resource "azurerm_subnet" "my_terraform_subnet" {
   name                 = "${random_pet.prefix.id}-subnet"
-  resource_group_name  = "project4TF"
+  resource_group_name  = azurerm_resource_group.my_terraform_group.name
   virtual_network_name = azurerm_virtual_network.my_terraform_network.name
   address_prefixes     = ["10.0.1.0/24"]
 }
 
-# Create public IPs
+# Create a public IP address
 resource "azurerm_public_ip" "my_terraform_public_ip" {
   name                = "${random_pet.prefix.id}-public-ip"
-  location            = "East US"
-  resource_group_name = "project4TF"
+  location            = azurerm_resource_group.my_terraform_group.location
+  resource_group_name = azurerm_resource_group.my_terraform_group.name
   allocation_method   = "Dynamic"
 }
 
-# Create Network Security Group and rules
+# Create a Network Security Group with rules
 resource "azurerm_network_security_group" "my_terraform_nsg" {
   name                = "${random_pet.prefix.id}-nsg"
-  location            = "East US"
-  resource_group_name = "project4TF"
+  location            = azurerm_resource_group.my_terraform_group.location
+  resource_group_name = azurerm_resource_group.my_terraform_group.name
 
   security_rule {
     name                       = "RDP"
@@ -43,6 +70,7 @@ resource "azurerm_network_security_group" "my_terraform_nsg" {
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
+
   security_rule {
     name                       = "web"
     priority                   = 1001
@@ -56,11 +84,11 @@ resource "azurerm_network_security_group" "my_terraform_nsg" {
   }
 }
 
-# Create network interface
+# Create a network interface
 resource "azurerm_network_interface" "my_terraform_nic" {
   name                = "${random_pet.prefix.id}-nic"
-  location            = "East US"
-  resource_group_name = "project4TF"
+  location            = azurerm_resource_group.my_terraform_group.location
+  resource_group_name = azurerm_resource_group.my_terraform_group.name
 
   ip_configuration {
     name                          = "my_nic_configuration"
@@ -70,34 +98,33 @@ resource "azurerm_network_interface" "my_terraform_nic" {
   }
 }
 
-# Connect the security group to the network interface
+# Associate the Network Security Group with the Network Interface
 resource "azurerm_network_interface_security_group_association" "example" {
   network_interface_id      = azurerm_network_interface.my_terraform_nic.id
   network_security_group_id = azurerm_network_security_group.my_terraform_nsg.id
 }
 
-# Create storage account for boot diagnostics
+# Create a storage account for boot diagnostics
 resource "azurerm_storage_account" "my_storage_account" {
   name                     = "diag${random_id.random_id.hex}"
-  location                 = "East US"
-  resource_group_name      = "project4TF"
+  location                 = azurerm_resource_group.my_terraform_group.location
+  resource_group_name      = azurerm_resource_group.my_terraform_group.name
   account_tier             = "Standard"
   account_replication_type = "LRS"
 }
 
-
-# Create virtual machine
+# Create a Windows virtual machine
 resource "azurerm_windows_virtual_machine" "main" {
-  name                  = "${var.prefix}-vm"
+  name                  = "${random_pet.prefix.id}-vm"
   admin_username        = "azureuser"
   admin_password        = random_password.password.result
-  location              = "East US"
-  resource_group_name   = "project4TF"
+  location              = azurerm_resource_group.my_terraform_group.location
+  resource_group_name   = azurerm_resource_group.my_terraform_group.name
   network_interface_ids = [azurerm_network_interface.my_terraform_nic.id]
   size                  = "Standard_DS1_v2"
 
   os_disk {
-    name                 = "myOsDisk"
+    name                 = "${random_pet.prefix.id}-osdisk"
     caching              = "ReadWrite"
     storage_account_type = "Premium_LRS"
   }
@@ -109,13 +136,12 @@ resource "azurerm_windows_virtual_machine" "main" {
     version   = "latest"
   }
 
-
   boot_diagnostics {
     storage_account_uri = azurerm_storage_account.my_storage_account.primary_blob_endpoint
   }
 }
 
-# Install IIS web server to the virtual machine
+# Install IIS web server on the virtual machine
 resource "azurerm_virtual_machine_extension" "web_server_install" {
   name                       = "${random_pet.prefix.id}-wsi"
   virtual_machine_id         = azurerm_windows_virtual_machine.main.id
@@ -129,28 +155,4 @@ resource "azurerm_virtual_machine_extension" "web_server_install" {
       "commandToExecute": "powershell -ExecutionPolicy Unrestricted Install-WindowsFeature -Name Web-Server -IncludeAllSubFeature -IncludeManagementTools"
     }
   SETTINGS
-}
-
-# Generate random text for a unique storage account name
-resource "random_id" "random_id" {
-  keepers = {
-    # Generate a new ID only when a new resource group is defined
-    resource_group = "project4TF"
-  }
-
-  byte_length = 8
-}
-
-resource "random_password" "password" {
-  length      = 20
-  min_lower   = 1
-  min_upper   = 1
-  min_numeric = 1
-  min_special = 1
-  special     = true
-}
-
-resource "random_pet" "prefix" {
-  prefix = var.prefix
-  length = 1
 }
