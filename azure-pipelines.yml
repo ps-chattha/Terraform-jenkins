@@ -21,6 +21,8 @@ steps:
         # Initialize Terraform
         terraform init
 
+        export ARM_CLIENT_ID=$(client_id) 
+
         # Plan Terraform deployment
         terraform plan -out tfplan
 
